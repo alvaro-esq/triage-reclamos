@@ -1,0 +1,8 @@
+# Hooks de pre-commit. Instalar con: pre-commit install
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      # Los datos van con DVC: bloquea cualquier archivo de más de 1 MB.
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
