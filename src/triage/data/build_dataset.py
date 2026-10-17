@@ -61,17 +61,27 @@ def muestrear(df: pd.DataFrame, max_por_clase: int, seed: int) -> pd.DataFrame:
     return mezcla.groupby("clase").head(max_por_clase).sort_values("complaint_id").reset_index(drop=True)
 
 
-def leer_crudos(raw_dir: str) -> pd.DataFrame:
-    archivos = sorted(Path(raw_dir).glob("*.csv"))
-    if not archivos:
-        raise FileNotFoundError(f"No hay archivos .csv en {raw_dir}")
-    partes = [pd.read_csv(a, dtype=str, usecols=lambda c: c in COLUMNAS) for a in archivos]
+def leer_parquet(ruta: Path) -> pd.DataFrame:
+    """Lee un parquet de landing con los mismos tipos que el CSV: todo como texto."""
+    df = pd.read_parquet(ruta)
+    df = df[[c for c in df.columns if c in COLUMNAS]]
+    return df.astype("string").astype(object).where(df.notna(), None)
+
+
+def leer_crudos(raw_dir: str, landing_dir: str | None = None) -> pd.DataFrame:
+    """CSV de raw_dir más los parquet diarios de landing_dir (si existe)."""
+    csvs = sorted(Path(raw_dir).glob("*.csv"))
+    parquets = sorted(Path(landing_dir).glob("*.parquet")) if landing_dir else []
+    if not csvs and not parquets:
+        raise FileNotFoundError(f"No hay archivos .csv en {raw_dir} ni .parquet en {landing_dir}")
+    partes = [pd.read_csv(a, dtype=str, usecols=lambda c: c in COLUMNAS) for a in csvs]
+    partes += [leer_parquet(a) for a in parquets]
     return renombrar(pd.concat(partes, ignore_index=True))
 
 
 def construir(params: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
     label_map = cargar_yaml(params["data"]["label_map"])
-    df = limpiar(leer_crudos(params["data"]["raw_dir"]))
+    df = limpiar(leer_crudos(params["data"]["raw_dir"], params["data"].get("landing_dir")))
     df["clase"] = asignar_clase(df, label_map)
 
     corte = pd.Timestamp(params["split"]["val_start"])
