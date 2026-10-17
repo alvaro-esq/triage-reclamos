@@ -1,0 +1,4 @@
+[core]
+    remote = storage
+['remote "storage"']
+    url = /home/andres/product-dev-u/dvc-storage/triage-reclamos
